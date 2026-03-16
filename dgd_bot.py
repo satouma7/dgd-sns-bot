@@ -181,7 +181,7 @@ def main():
     load_dotenv()
     posted = load_posted()
     feed = feedparser.parse(RSS_URL)
-    print(feed)
+    # print(feed)
     for entry in feed.entries:
         title = entry.title
         link = entry.link
@@ -214,7 +214,7 @@ def main():
             )
             print("POST ISSUE")
             post_text = trim_post(post_text)
-            # print(post_text)
+            print(post_text)
             post_to_bluesky(post_text)
             send_email(post_text)
             # post_to_x(post_text)
@@ -233,7 +233,7 @@ def main():
                 f"{doi_link(doi)}")
             print("POST ARTICLE")
             post_text = trim_post(post_text)
-            # print(post_text)
+            print(post_text)
             post_to_bluesky(post_text)
             send_email(post_text)
             # post_to_x(post_text)
