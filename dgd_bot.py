@@ -13,7 +13,7 @@ RSS_URL = "https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc
 POSTED_FILE = "posted.json"
 MAX_TITLE = 180
 MAX_LEN = 300
-DRY_RUN = True
+DRY_RUN = False
 bsky_client = None
 
 def send_email(text):
