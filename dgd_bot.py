@@ -17,16 +17,19 @@ DRY_RUN = False
 bsky_client = None
 
 def send_email(text):
-    msg = MIMEText(text)
-    msg["Subject"] = "DGD Bot Post"
-    msg["From"] = os.getenv("MAIL_FROM")
-    msg["To"] = os.getenv("MAIL_TO")
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(
-            os.getenv("MAIL_USER"),
-            os.getenv("MAIL_PASS")
-        )
-        server.send_message(msg)
+    try:
+        msg = MIMEText(text)
+        msg["Subject"] = "DGD Bot Post"
+        msg["From"] = os.getenv("MAIL_FROM")
+        msg["To"] = os.getenv("MAIL_TO")
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(
+                os.getenv("MAIL_USER"),
+                os.getenv("MAIL_PASS")
+            )
+            server.send_message(msg)
+    except Exception as e:
+        print(f"Email sending failed: {e}")
 
 def post_to_x(text):
     if DRY_RUN:
