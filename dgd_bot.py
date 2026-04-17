@@ -7,7 +7,7 @@ from atproto import Client
 import tweepy
 from dotenv import load_dotenv
 import smtplib
-from email.message import EmailMessage
+import base64
 
 RSS_URL = "https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=1440169x"
 POSTED_FILE = "posted.json"
@@ -18,20 +18,24 @@ bsky_client = None
 
 def send_email(text):
     try:
-        print(f"Email text repr: {repr(text[:80])}")
-        msg = EmailMessage()
-        msg.set_content(text)
-        msg["Subject"] = "DGD Bot Post"
-        msg["From"] = os.getenv("MAIL_FROM")
-        msg["To"] = os.getenv("MAIL_TO")
+        from_addr = (os.getenv("MAIL_FROM") or "").replace('\xa0', ' ')
+        to_addr = (os.getenv("MAIL_TO") or "").replace('\xa0', ' ')
+        body_b64 = base64.b64encode(text.encode('utf-8')).decode('ascii')
+        raw_msg = "\r\n".join([
+            f"From: {from_addr}",
+            f"To: {to_addr}",
+            "Subject: DGD Bot Post",
+            "MIME-Version: 1.0",
+            "Content-Type: text/plain; charset=utf-8",
+            "Content-Transfer-Encoding: base64",
+            "",
+            body_b64
+        ])
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(
-                os.getenv("MAIL_USER"),
-                os.getenv("MAIL_PASS")
-            )
-            server.send_message(msg)
+            server.login(os.getenv("MAIL_USER"), os.getenv("MAIL_PASS"))
+            server.sendmail(from_addr, [to_addr], raw_msg)
     except Exception as e:
-        print(f"Email sending failed: {e}")
+        print(f"Email sending failed: {repr(e)}")
 
 def post_to_x(text):
     if DRY_RUN:
