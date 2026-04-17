@@ -18,8 +18,10 @@ bsky_client = None
 
 def send_email(text):
     try:
-        from_addr = (os.getenv("MAIL_FROM") or "").replace('\xa0', ' ')
-        to_addr = (os.getenv("MAIL_TO") or "").replace('\xa0', ' ')
+        def to_ascii(s):
+            return (s or "").encode('ascii', 'ignore').decode('ascii')
+        from_addr = to_ascii(os.getenv("MAIL_FROM"))
+        to_addr = to_ascii(os.getenv("MAIL_TO"))
         body_b64 = base64.b64encode(text.encode('utf-8')).decode('ascii')
         raw_msg = "\r\n".join([
             f"From: {from_addr}",
@@ -33,7 +35,7 @@ def send_email(text):
         ])
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(os.getenv("MAIL_USER"), os.getenv("MAIL_PASS"))
-            server.sendmail(from_addr, [to_addr], raw_msg)
+            server.sendmail(from_addr, [to_addr], raw_msg.encode('ascii'))
     except Exception as e:
         print(f"Email sending failed: {repr(e)}")
 
