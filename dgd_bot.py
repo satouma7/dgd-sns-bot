@@ -18,6 +18,7 @@ bsky_client = None
 
 def send_email(text):
     try:
+        print(f"Email text repr: {repr(text[:80])}")
         msg = EmailMessage()
         msg.set_content(text)
         msg["Subject"] = "DGD Bot Post"
