@@ -7,7 +7,7 @@ from atproto import Client
 import tweepy
 from dotenv import load_dotenv
 import smtplib
-from email.mime.text import MIMEText
+from email.message import EmailMessage
 
 RSS_URL = "https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=1440169x"
 POSTED_FILE = "posted.json"
@@ -18,7 +18,8 @@ bsky_client = None
 
 def send_email(text):
     try:
-        msg = MIMEText(text, "plain", "utf-8")
+        msg = EmailMessage()
+        msg.set_content(text)
         msg["Subject"] = "DGD Bot Post"
         msg["From"] = os.getenv("MAIL_FROM")
         msg["To"] = os.getenv("MAIL_TO")
