@@ -81,6 +81,9 @@ def post_to_bluesky(text):
     except Exception as e:
         print(f"Bluesky post failed: {repr(e)}")
 
+def normalize_text(text):
+    return text.replace('\xa0', ' ').replace('\u200b', '').strip()
+
 def trim_post(text):
     if len(text) <= MAX_LEN:
         return text
@@ -216,7 +219,7 @@ def main():
                 f"{doi_link(doi)}"
             )
             print("POST ISSUE")
-            post_text = trim_post(post_text)
+            post_text = normalize_text(trim_post(post_text))
             print(post_text)
             post_to_bluesky(post_text)
             send_email(post_text)
@@ -235,7 +238,7 @@ def main():
                 f"{authors}\n"
                 f"{doi_link(doi)}")
             print("POST ARTICLE")
-            post_text = trim_post(post_text)
+            post_text = normalize_text(trim_post(post_text))
             print(post_text)
             post_to_bluesky(post_text)
             send_email(post_text)
