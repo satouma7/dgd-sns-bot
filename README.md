@@ -15,7 +15,7 @@
 |---|---|
 | `BSKY_USERNAME` | BlueskyのユーザーID |
 | `BSKY_PASSWORD` | Blueskyのパスワード |
-| `MAIL_USER` | 送信元GmailアドレS |
+| `MAIL_USER` | 送信元Gmailアドレス |
 | `MAIL_PASS` | Gmailの**アプリパスワード**（通常のパスワードとは別） |
 | `MAIL_FROM` | 送信元メールアドレス |
 | `MAIL_TO` | 送信先メールアドレス |
