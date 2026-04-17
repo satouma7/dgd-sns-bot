@@ -18,7 +18,7 @@ bsky_client = None
 
 def send_email(text):
     try:
-        msg = MIMEText(text)
+        msg = MIMEText(text, "plain", "utf-8")
         msg["Subject"] = "DGD Bot Post"
         msg["From"] = os.getenv("MAIL_FROM")
         msg["To"] = os.getenv("MAIL_TO")
@@ -79,7 +79,7 @@ def post_to_bluesky(text):
         else:
             bsky_client.send_post(text=text)
     except Exception as e:
-        print("Bluesky post failed:", e)
+        print(f"Bluesky post failed: {repr(e)}")
 
 def trim_post(text):
     if len(text) <= MAX_LEN:
