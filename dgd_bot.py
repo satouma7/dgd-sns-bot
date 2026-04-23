@@ -221,16 +221,32 @@ def main():
             # if cover_image is None:
             #     cover_image = generate_wiley_image_url(doi)
 
+            toc_lines = []
+            for e in feed.entries:
+                if e.title == "Issue Information":
+                    continue
+                a = extract_authors(e) or ""
+                d = extract_doi(e.link) or ""
+                toc_lines.append(f"{e.title}\n{a}\n{doi_link(d)}")
+            toc_text = "\n\n".join(toc_lines)
+
             post_text = (
                 f"DGD Volume {volume}, Issue {issue} was released!!\n"
                 f"Cover: {cover_text}\n"
                 f"{doi_link(doi)}"
             )
+            email_text = (
+                f"DGD Volume {volume}, Issue {issue} was released!!\n\n"
+                f"Cover: {cover_text}\n"
+                f"{doi_link(doi)}\n\n"
+                f"--- Table of Contents ---\n\n"
+                f"{toc_text}"
+            )
             print("POST ISSUE")
             post_text = normalize_text(trim_post(post_text))
             print(post_text)
             post_to_bluesky(post_text)
-            send_email(post_text)
+            send_email(normalize_text(email_text))
             # post_to_x(post_text)
             # print("IMAGE:", cover_image)
             # print(cover_text)
