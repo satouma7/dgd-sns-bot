@@ -1,0 +1,26 @@
+name: Test Email
+
+on:
+  workflow_dispatch:
+    inputs:
+      doi:
+        description: 'DOI (e.g. 10.1111/dgd.70062)'
+        required: false
+        default: '10.1111/dgd.70062'
+
+jobs:
+  test-email:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Send test email
+        env:
+          MAIL_USER: ${{ secrets.MAIL_USER }}
+          MAIL_PASS: ${{ secrets.MAIL_PASS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: python test_email.py ${{ github.event.inputs.doi }} --yes

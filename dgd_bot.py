@@ -36,8 +36,10 @@ def send_email(text):
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(os.getenv("MAIL_USER"), os.getenv("MAIL_PASS"))
             server.sendmail(from_addr, to_addrs, raw_msg.encode('ascii'))
+        return True
     except Exception as e:
         print(f"Email sending failed: {repr(e)}")
+        return False
 
 def post_to_x(text):
     if DRY_RUN:
@@ -191,6 +193,9 @@ def extract_cover_text(html):
     text = text.replace("Cover Photograph:", "").strip()
     return text
 
+MAIL_PREFIX = "桃津様、\nDGDの新着情報をお知らせします。BlueskyとXでのリポストをお願いします。\n\n"
+MAIL_SUFFIX = "\n\n引き続きよろしくお願い致します。\n佐藤"
+
 def main():
     load_dotenv()
     posted = load_posted()
@@ -246,7 +251,7 @@ def main():
             post_text = normalize_text(trim_post(post_text))
             print(post_text)
             post_to_bluesky(post_text)
-            send_email(normalize_text(email_text))
+            send_email(MAIL_PREFIX + normalize_text(email_text) + MAIL_SUFFIX)
             # post_to_x(post_text)
             # print("IMAGE:", cover_image)
             # print(cover_text)
@@ -265,7 +270,7 @@ def main():
             post_text = normalize_text(trim_post(post_text))
             print(post_text)
             post_to_bluesky(post_text)
-            send_email(post_text)
+            send_email(MAIL_PREFIX + post_text + MAIL_SUFFIX)
             # post_to_x(post_text)
         print("-----")
         posted.append(doi)
