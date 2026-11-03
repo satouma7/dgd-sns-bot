@@ -108,8 +108,10 @@ def doi_link(doi):
     return f"https://doi.org/{doi}"
 
 def extract_authors(entry, max_authors=10):
-    if hasattr(entry, "authors"):
-        raw = entry.authors[0]["name"]
+    if hasattr(entry, "authors") and entry.authors:
+        raw = entry.authors[0].get("name")
+        if not raw:
+            return ""
         raw = raw.replace("\n", " ")
         names = [n.strip() for n in raw.split(",") if n.strip()]
         formatted = []
@@ -237,13 +239,13 @@ def main():
 
             post_text = (
                 f"DGD Volume {volume}, Issue {issue} was released!!\n"
-                f"Cover: {cover_text}\n"
-                f"{doi_link(doi)}"
+                f"{doi_link(doi)}\n"
+                f"Cover: {cover_text}"
             )
             email_text = (
                 f"DGD Volume {volume}, Issue {issue} was released!!\n\n"
-                f"Cover: {cover_text}\n"
                 f"{doi_link(doi)}\n\n"
+                f"Cover: {cover_text}\n\n"
                 f"--- Table of Contents ---\n\n"
                 f"{toc_text}"
             )
@@ -261,11 +263,11 @@ def main():
             # ---- Article ----
         else:
             authors = extract_authors(entry) or ""
-            post_text = (
-                "New article in DGD.\n"
-                f"{shorten_title(title)}\n"
-                f"{authors}\n"
-                f"{doi_link(doi)}")
+            post_lines = ["New article in DGD.", shorten_title(title)]
+            if authors:
+                post_lines.append(authors)
+            post_lines.append(doi_link(doi))
+            post_text = "\n".join(post_lines)
             print("POST ARTICLE")
             post_text = normalize_text(trim_post(post_text))
             print(post_text)
