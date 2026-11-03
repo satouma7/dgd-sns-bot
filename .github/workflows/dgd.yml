@@ -4,9 +4,6 @@ permissions:
   contents: write
   
 on:
-  push:
-    branches: [main]
-    paths: [dgd_bot.py]
   schedule:
     - cron: "0 */6 * * *"   # 6時間ごと
   workflow_dispatch:        # 手動実行ボタン
