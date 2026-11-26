@@ -8,34 +8,49 @@ import tweepy
 from dotenv import load_dotenv
 import smtplib
 import base64
+from email.message import EmailMessage
+from email import policy
+from html import unescape
+from urllib.parse import urlsplit
 
 RSS_URL = "https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=1440169x"
 POSTED_FILE = "posted.json"
 MAX_TITLE = 180
 MAX_LEN = 300
+MAX_IMAGE_BYTES = 1_000_000
 DRY_RUN = False
 bsky_client = None
 
-def send_email(text):
+def send_email(text, attachment=None):
     try:
         def to_ascii(s):
             return (s or "").encode('ascii', 'ignore').decode('ascii')
         from_addr = to_ascii(os.getenv("MAIL_FROM"))
         to_addrs = [to_ascii(a.strip()) for a in (os.getenv("MAIL_TO") or "").split(",") if a.strip()]
-        body_b64 = base64.b64encode(text.encode('utf-8')).decode('ascii')
-        raw_msg = "\r\n".join([
-            f"From: {from_addr}",
-            f"To: {', '.join(to_addrs)}",
-            "Subject: DGD Bot Post",
-            "MIME-Version: 1.0",
-            "Content-Type: text/plain; charset=utf-8",
-            "Content-Transfer-Encoding: base64",
-            "",
-            body_b64
-        ])
+        if attachment:
+            image, content_type, filename = attachment
+            msg = EmailMessage()
+            msg["From"] = from_addr
+            msg["To"] = ", ".join(to_addrs)
+            msg["Subject"] = "DGD Bot Post"
+            msg.set_content(text, charset="utf-8")
+            msg.add_attachment(image, maintype="image", subtype=content_type.split("/", 1)[1], filename=filename)
+            raw_msg = msg.as_bytes(policy=policy.SMTP)
+        else:
+            body_b64 = base64.b64encode(text.encode('utf-8')).decode('ascii')
+            raw_msg = "\r\n".join([
+                f"From: {from_addr}",
+                f"To: {', '.join(to_addrs)}",
+                "Subject: DGD Bot Post",
+                "MIME-Version: 1.0",
+                "Content-Type: text/plain; charset=utf-8",
+                "Content-Transfer-Encoding: base64",
+                "",
+                body_b64
+            ]).encode('ascii')
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(os.getenv("MAIL_USER"), os.getenv("MAIL_PASS"))
-            server.sendmail(from_addr, to_addrs, raw_msg.encode('ascii'))
+            server.sendmail(from_addr, to_addrs, raw_msg)
         return True
     except Exception as e:
         print(f"Email sending failed: {repr(e)}")
@@ -56,11 +71,11 @@ def post_to_x(text):
     except Exception as e:
         print(f"X post failed: {e}")
 
-def post_to_bluesky(text):
+def post_to_bluesky(text, image=None, image_alt=""):
     global bsky_client
     if DRY_RUN:
         print(f"DRY RUN: Posting to Bluesky - \n\n{text}")
-        return
+        return True
     try:
         if bsky_client is None:
             bsky_client = Client()
@@ -84,12 +99,16 @@ def post_to_bluesky(text):
                     "uri": url
                 }]
             })
-        if facets:
+        if image is not None:
+            bsky_client.send_image(text=text, image=image, image_alt=image_alt, facets=facets)
+        elif facets:
             bsky_client.send_post(text=text, facets=facets)
         else:
             bsky_client.send_post(text=text)
+        return True
     except Exception as e:
         print(f"Bluesky post failed: {repr(e)}")
+        return False
 
 def normalize_text(text):
     return text.replace('\xa0', ' ').replace('\u200b', '').strip()
@@ -151,6 +170,37 @@ def format_obituary_post(entry, doi, section):
     if len(body) > max_body_len:
         body = body[:max_body_len - 1].rstrip(" ,;") + "…"
     return f"{body}\n{link}"
+
+def obituary_image_url(entry):
+    for content in entry.get("content") or []:
+        if content.get("type") == "text/html":
+            url = extract_cover_image(content.get("value") or "")
+            if url:
+                return unescape(url)
+    return None
+
+def download_obituary_image(entry):
+    url = obituary_image_url(entry)
+    if not url:
+        raise ValueError(f"No RSS image for obituary: {entry.title}")
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or parsed.hostname != "onlinelibrary.wiley.com" or not parsed.path.startswith("/cms/asset/"):
+        raise ValueError(f"Unexpected obituary image URL: {url}")
+
+    with requests.get(url, headers={"User-Agent": "DGD-SNS-Bot/1.0"},
+                      timeout=20, stream=True, allow_redirects=False) as response:
+        response.raise_for_status()
+        content_type = response.headers.get("Content-Type", "").split(";", 1)[0].lower()
+        if content_type not in {"image/jpeg", "image/png", "image/webp"}:
+            raise ValueError(f"Unexpected obituary image type: {content_type}")
+        image = bytearray()
+        for chunk in response.iter_content(65536):
+            image.extend(chunk)
+            if len(image) > MAX_IMAGE_BYTES:
+                raise ValueError(f"Obituary image exceeds {MAX_IMAGE_BYTES} bytes")
+    if not image:
+        raise ValueError(f"Empty obituary image: {url}")
+    return bytes(image), content_type
 
 def generate_wiley_image_url(doi):
     suffix = doi.split('/')[-1] # dgd.70051
@@ -225,6 +275,7 @@ MAIL_SUFFIX = "\n\n引き続きよろしくお願い致します。\n佐藤"
 def main():
     load_dotenv()
     posted = load_posted()
+    failures = []
     feed = feedparser.parse(RSS_URL)
     # print(feed)
     for entry in feed.entries:
@@ -288,10 +339,21 @@ def main():
             # ---- Article ----
         elif section:
             post_text = format_obituary_post(entry, doi, section)
+            try:
+                image, content_type = download_obituary_image(entry)
+            except Exception as e:
+                failures.append(f"Obituary image failed for {doi}: {e}")
+                continue
+            image_alt = f"Image accompanying the DGD obituary: {title}"
+            extension = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}[content_type]
             print("POST OBITUARY")
             print(post_text)
-            post_to_bluesky(post_text)
-            send_email(MAIL_PREFIX + post_text + MAIL_SUFFIX)
+            if not post_to_bluesky(post_text, image=image, image_alt=image_alt):
+                failures.append(f"Obituary Bluesky post failed: {doi}")
+                continue
+            if not send_email(MAIL_PREFIX + post_text + MAIL_SUFFIX,
+                              attachment=(image, content_type, f"dgd-obituary.{extension}")):
+                failures.append(f"Obituary email failed for {doi}; Bluesky post was recorded")
             # post_to_x(post_text)
         else:
             authors = extract_authors(entry) or ""
@@ -309,6 +371,8 @@ def main():
         print("-----")
         posted.append(doi)
     save_posted(posted)
+    if failures:
+        raise RuntimeError("; ".join(failures))
 
 if __name__ == "__main__":
     main()
