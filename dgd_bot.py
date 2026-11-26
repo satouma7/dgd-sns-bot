@@ -128,6 +128,30 @@ def extract_authors(entry, max_authors=10):
         return ", ".join(formatted)
     return ""
 
+def obituary_section(entry):
+    sections = [entry.get("prism_section") or ""]
+    sections.extend(tag.get("term") or "" for tag in (entry.get("tags") or []))
+    for section in sections:
+        label = section.strip().upper()
+        if label in {"OBITUARY", "IN MEMORIAM", "MEMORIAL"}:
+            return label
+    return None
+
+def format_obituary_post(entry, doi, section):
+    authors = entry.get("authors") or []
+    byline = authors[0].get("name", "") if authors else ""
+    byline = " ".join(byline.split())
+    lines = [section, shorten_title(normalize_text(entry.title))]
+    if byline:
+        lines.append(byline)
+
+    link = doi_link(doi)
+    body = "\n".join(lines)
+    max_body_len = MAX_LEN - len(link) - 1
+    if len(body) > max_body_len:
+        body = body[:max_body_len - 1].rstrip(" ,;") + "…"
+    return f"{body}\n{link}"
+
 def generate_wiley_image_url(doi):
     suffix = doi.split('/')[-1] # dgd.70051
     id_num = suffix.replace('.', '') # dgd70051
@@ -208,6 +232,7 @@ def main():
         link = entry.link
         html = get_html(entry)
         doi = extract_doi(link)
+        section = obituary_section(entry)
         if doi in posted:
             continue
 
@@ -261,6 +286,13 @@ def main():
             # print("HTML:")
             # print(html)
             # ---- Article ----
+        elif section:
+            post_text = format_obituary_post(entry, doi, section)
+            print("POST OBITUARY")
+            print(post_text)
+            post_to_bluesky(post_text)
+            send_email(MAIL_PREFIX + post_text + MAIL_SUFFIX)
+            # post_to_x(post_text)
         else:
             authors = extract_authors(entry) or ""
             post_lines = ["New article in DGD.", shorten_title(title)]
