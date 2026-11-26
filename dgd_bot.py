@@ -230,7 +230,6 @@ def main():
     for entry in feed.entries:
         title = entry.title
         link = entry.link
-        html = get_html(entry)
         doi = extract_doi(link)
         section = obituary_section(entry)
         if doi in posted:
@@ -238,6 +237,7 @@ def main():
 
         # ---- Issue ----
         if title == "Issue Information":
+            html = get_html(entry)
             volume = None
             issue = None
             for e in feed.entries:

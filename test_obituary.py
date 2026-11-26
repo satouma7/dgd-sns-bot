@@ -15,6 +15,7 @@ def gurdon_entry(**changes):
         "tags": [{"term": "OBITUARY"}],
         "authors": [{"name": "Makoto Asashima"}],
         "summary": "Development, Growth & Differentiation, Volume 68, Issue 1",
+        "content": [],
     }
     data.update(changes)
     return FeedParserDict(data)
